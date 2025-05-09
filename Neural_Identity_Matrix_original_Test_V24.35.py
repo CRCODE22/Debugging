@@ -149,13 +149,64 @@ class NameGenerator(nn.Module):
         return (torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device),
                 torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device))
 
-# Load dataset
+# Load datasets
+import pandas as pd
+
+# Load clothing datasets
+print("Loading clothing datasets...")
 try:
-    print("Loading dataset from dataset.csv")
+    upper_clothing_df = pd.read_csv('upper_clothing.csv')
+    lower_clothing_df = pd.read_csv('lower_clothing.csv')
+    footwear_df = pd.read_csv('footwear.csv')
+    print(f"Loaded upper_clothing.csv with {len(upper_clothing_df)} items")
+    print(f"Loaded lower_clothing.csv with {len(lower_clothing_df)} items")
+    print(f"Loaded footwear.csv with {len(footwear_df)} items")
+except FileNotFoundError as e:
+    print(f"Error: {e}. Ensure clothing .csv files are in 'K:\\My Github Repositories\\Neural-Identity-Matrix'.")
+    raise
+
+# Load style themes, locations, and overall themes datasets
+print("Loading style themes, locations, and overall themes datasets...")
+try:
+    style_themes_df = pd.read_csv('style_themes.csv')
+    locations_df = pd.read_csv('locations.csv')
+    overall_themes_df = pd.read_csv('overall_themes.csv')
+    print(f"Loaded style_themes.csv with {len(style_themes_df)} items")
+    print(f"Loaded locations.csv with {len(locations_df)} items")
+    print(f"Loaded overall_themes.csv with {len(overall_themes_df)} items")
+except FileNotFoundError as e:
+    print(f"Error: {e}. Ensure style/location/themes .csv files are in 'K:\\My Github Repositories\\Neural-Identity-Matrix'.")
+    raise
+
+# Load playlist datasets
+print("Loading playlist datasets...")
+try:
+    artist_names_df = pd.read_csv('artist_names.csv')
+    genres_df = pd.read_csv('genres.csv')
+    themes_df = pd.read_csv('themes.csv')
+    print(f"Loaded artist_names.csv with {len(artist_names_df)} items")
+    print(f"Loaded genres.csv with {len(genres_df)} items")
+    print(f"Loaded themes.csv with {len(themes_df)} items")
+    artist_names_list = artist_names_df['Artist'].tolist()
+    genres_list = genres_df['Genre'].tolist()
+    themes_list = themes_df['Theme'].tolist()
+except FileNotFoundError as e:
+    print(f"Error: {e}. Ensure playlist .csv files are in 'K:\\My Github Repositories\\Neural-Identity-Matrix'.")
+    raise
+
+# Load dataset from dataset.csv
+print("Loading dataset from dataset.csv")
+try:
     df = pd.read_csv('dataset.csv')
     print(f"Loaded dataset.csv with {len(df)} rows")
-except FileNotFoundError:
-    print("Error: dataset.csv not found!")
+    # Check for Bust, Waist, Hips columns; parse Body Measurements if missing
+    if 'Bust' not in df.columns or 'Waist' not in df.columns or 'Hips' not in df.columns:
+        print("Bust, Waist, Hips columns missing; parsing Body Measurements")
+        df[['Bust', 'Waist', 'Hips']] = df['Body Measurements'].str.split('-', expand=True).astype(int)
+    else:
+        print("Using Bust, Waist, Hips columns from dataset.csv")
+except FileNotFoundError as e:
+    print(f"Error: {e}. Ensure dataset.csv is in 'K:\\My Github Repositories\\Neural-Identity-Matrix'.")
     raise
 try:
     additional_names = pd.read_csv('previous_names.csv')
@@ -300,6 +351,7 @@ for column in ['Nationality', 'Ethnicity', 'Birthplace', 'Profession', 'Body typ
     le = LabelEncoder()
     df[column] = le.fit_transform(df[column])
     le_dict[column] = le
+    print("le_dict keys:", list(le_dict.keys()))  # Add this
 
 new_professions = ['Astrologer', 'Chef', 'DJ', 'Engineer', 'Gamer', 'Hacker', 'Pilot', 'Scientist', 'Streamer', 'Writer']
 df['Profession'] = le_dict['Profession'].inverse_transform(df['Profession'])
@@ -815,7 +867,7 @@ def generate_identities_gui(num_identities, resume_training, profession_filter, 
         for i in range(num_identities):
             firstname = generate_name(first_name_gen, first_name_char_to_idx, first_name_idx_to_char, first_name_max_len, device, name_type='firstname', existing_names=generated_firstnames, temperature=0.7)
             lastname = generate_name(last_name_gen, last_name_char_to_idx, last_name_idx_to_char, last_name_max_len, device, name_type='lastname', existing_names=generated_lastnames, temperature=0.7)
-            nickname = generate_name(nickname_gen, nickname_char_to_idx, nickname_idx_to_char, nickname_max_len, device, name_type='nickname', existing_names=generated_nicknames, temperature=0.7)
+            nickname = generate_name(nickname_gen, nickname_char_to_idx, nickname_char_to_idx, nickname_max_len, device, name_type='nickname', existing_names=generated_nicknames, temperature=0.7)
             
             generated_firstnames.add(firstname)
             generated_lastnames.add(lastname)
@@ -834,7 +886,7 @@ def generate_identities_gui(num_identities, resume_training, profession_filter, 
             ethnicity = le_dict['Ethnicity'].inverse_transform([int(output[0, 7])])[0]
             birthplace = le_dict['Birthplace'].inverse_transform([int(output[0, 8])])[0]
             profession = le_dict['Profession'].inverse_transform([int(output[0, 9])])[0]
-            body_type = le_dict[' BODY type'].inverse_transform([int(output[0, 10])])[0]
+            body_type = le_dict['Body type'].inverse_transform([int(output[0, 10])])[0]
             hair_color = le_dict['Hair color'].inverse_transform([int(output[0, 11])])[0]
             eye_color = le_dict['Eye color'].inverse_transform([int(output[0, 12])])[0]
             bra_size = le_dict['Bra/cup size'].inverse_transform([int(output[0, 13])])[0]
@@ -860,21 +912,20 @@ def generate_identities_gui(num_identities, resume_training, profession_filter, 
                 cosmic_tattoo = random.choice(['Starfield Nebula', 'Galactic Spiral', 'Pulsar Wave'])
                 print(f"CLN-{i+1:03d} has a Cosmic Tattoo: {cosmic_tattoo}")
             
-            # UPDATED: Cosmic playlist with new CSV-based generation
             cosmic_playlist = 'None'
-            if random.random() < 0.1:  # Increased from 0.03 to 0.1
+            if random.random() < 0.05:
                 artist = random.choice(artist_names_list)
                 genre = random.choice(genres_list)
                 theme = random.choice(themes_list)
                 cosmic_playlist = f"{artist}'s {genre} {theme} Mix"
                 print(f"CLN-{i+1:03d} has a Cosmic Playlist: {cosmic_playlist}")
+            identity['Cosmic Playlist'] = cosmic_playlist
             
-            # UPDATED: Cosmic pet with Harmony the Melody Finch
             cosmic_pet = 'None'
             if random.random() < 0.02:
                 pet_options = [
                     'Nebula Kitten', 'Pulsar Pup', 'Quantum Finch',
-                    'Melody Finch named Harmony'  # New pet
+                    'Melody Finch named Harmony'
                 ]
                 cosmic_pet = random.choice(pet_options)
                 if cosmic_pet == 'Melody Finch named Harmony' and random.random() < 0.5:
@@ -933,22 +984,38 @@ def generate_identities_gui(num_identities, resume_training, profession_filter, 
             }
             identities.append(identity)
             
+            # Create DataFrame from identities
             df_identities = pd.DataFrame(identities)
+            # Ensure 'Cosmic Playlist' is in columns
+            if 'Cosmic Playlist' not in df_identities.columns:
+                print("Warning: 'Cosmic Playlist' missing from DataFrame, adding default column")
+                df_identities['Cosmic Playlist'] = ['None'] * len(df_identities)
+            # Debug: Print DataFrame columns and size
             print(f"Rendering DataFrame with columns: {list(df_identities.columns)}")
+            print(f"Generated {len(df_identities)} identities")
+            if len(df_identities) > 0:
+                print("Sample identity:", df_identities.iloc[0].to_dict())
+            else:
+                print("Warning: No identities generated")
+            
+            # Save to training log
             with open('training_log.txt', 'a') as log_file:
                 log_file.write(f"DataFrame columns: {list(df_identities.columns)}\n")
             
+            # Filter by profession if specified
             if profession_filter != 'All':
                 filtered_identities = df_identities[df_identities['Profession'] == profession_filter]
                 print(f"Filtered {len(filtered_identities)} identities with profession: {profession_filter}")
                 df_identities = filtered_identities
             
+            # Save to CSV
             try:
                 df_identities.to_csv('generated_cha_identities.csv', index=False)
             except PermissionError:
                 print("Error: Cannot write to generated_cha_identities.csv. Check permissions.")
                 raise
             
+            # Update additional names
             try:
                 additional_names = pd.concat([additional_names, pd.DataFrame([{'Firstname': firstname, 'Lastname': lastname}])], ignore_index=True)
                 additional_names.to_csv('previous_names.csv', index=False)
@@ -956,9 +1023,11 @@ def generate_identities_gui(num_identities, resume_training, profession_filter, 
                 print("Error: Cannot write to previous_names.csv. Check permissions.")
                 raise
             
+            # Create identity list for Gradio dropdown
             identity_list = [f"{row['Clone Number']}: {row['Nickname']}" for _, row in df_identities.iterrows()]
             identity_list.insert(0, "None")
             
+            # Generate loss plot
             fig, ax = plt.subplots()
             fig.patch.set_alpha(0)
             ax.set_facecolor('#0a0a28')
@@ -973,10 +1042,19 @@ def generate_identities_gui(num_identities, resume_training, profession_filter, 
             ax.spines['left'].set_color('#00e6e6')
             ax.spines['right'].set_color('#00e6e6')
             fig.savefig("loss_plot.png")
+            
+            # Yield for Gradio progress update
             yield df_identities, 'generated_cha_identities.csv', "loss_plot.png", gr.update(choices=identity_list), None, progress, f"Generated {i+1}/{num_identities} identities", fig
             time.sleep(0.1)
             plt.close(fig)
     
+    # Final yield for completion
+    print("Generation complete, yielding final DataFrame")
+    df_identities = pd.DataFrame(identities)
+    if 'Cosmic Playlist' not in df_identities.columns:
+        print("Warning: 'Cosmic Playlist' missing from final DataFrame, adding default column")
+        df_identities['Cosmic Playlist'] = ['None'] * len(df_identities)
+    print(f"Final DataFrame columns: {list(df_identities.columns)}")
     yield df_identities, 'generated_cha_identities.csv', "loss_plot.png", gr.update(choices=identity_list), None, 100, "Generation Complete", fig
 
 def generate_identities_gui_wrapper(num_identities, resume_training, profession_filter):
