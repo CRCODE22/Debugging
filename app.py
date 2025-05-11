@@ -7,19 +7,19 @@
 # ComfyUI must be running locally at http://127.0.0.1:8188 for image generation
 # X API credentials required for sharing feature; set up in environment variables
 
-import pandas as pd
-import numpy as np
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+os.environ["HF_HUB_OFFLINE"] = "1"
+import pandas as pd
+import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from datetime import datetime, timedelta
 import gradio as gr
 import matplotlib.pyplot as plt
 import random
-import os
 import glob
-os.environ["HF_HUB_OFFLINE"] = "1"
 import pickle
 import time
 import sys
@@ -29,6 +29,27 @@ from PIL import Image
 import io
 import secrets
 import tweepy
+
+# Ensure models directory exists
+MODELS_DIR = "models"
+os.makedirs(MODELS_DIR, exist_ok=True)
+
+def save_name_generator(model, model_name):
+    """Save a trained name generator model to disk."""
+    model_path = os.path.join(MODELS_DIR, f"{model_name}.pth")
+    torch.save(model.state_dict(), model_path)
+    print(f"Saved {model_name} to {model_path}")
+
+def load_name_generator(model, model_name):
+    """Load a trained name generator model from disk if it exists."""
+    model_path = os.path.join(MODELS_DIR, f"{model_name}.pth")
+    if os.path.exists(model_path):
+        model.load_state_dict(torch.load(model_path))
+        model.eval()  # Set to evaluation mode
+        print(f"Loaded {model_name} from {model_path}")
+        return True
+    return False
+
 # Configuration
 COMFYUI_URL = "http://127.0.0.1:8188"  # ComfyUI server address
 # Set random seed for reproducibility
